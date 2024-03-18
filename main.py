@@ -35,24 +35,24 @@ class Detector:
         dst_flow_spread_estimation=self.offline_hashmap_dst[dst]/self.samping_probability
         return dst_flow_spread_estimation-src_flow_spread_estimation>self.detect_threshold*dst_flow_spread_estimation
 dataset=open("130200.txt")
-detector=Detector(100000,0.01,0.1)
+detector=Detector(1000000,0.1,0.6)
 ddos_dataset=open("./CAIDA2007/20070804_134936.txt")
 filenames=os.listdir("./CAIDA2007")
 curfileidx=0
 alldst={}
-detected_victim=[]
-actual_victim=[]
+detected_victim={}
+actual_victim={}
 current_time=0
 idx=0
 while 1:
     readstr=dataset.readline()
     if not readstr:
         break
-    src,dst=readstr.split()[1:3]
+    src,dst=readstr.split(" ")[1:3]
     detector.insert(src,dst)
     alldst[dst]=1
     if detector.detect(src,dst):
-        detected_victim.append(dst)
+        detected_victim[dst]=1
 dataset.close()
 while 1:
     readstr=ddos_dataset.readline()
@@ -63,25 +63,25 @@ while 1:
         break
     timestamp,src,dst=readstr.split()
     timestamp=float(timestamp)
-    alldst[dst]=1
     if timestamp-current_time>60:
         current_time=timestamp
         idx+=1
         dst+=str(idx)
-        actual_victim.append(dst)
+        actual_victim[dst]=1
+    alldst[dst]=1
     detector.insert(src,dst)
     if detector.detect(src,dst):
-        detected_victim.append(dst)
+        detected_victim[dst]=1
 true_positive=0
 false_positive=0
 false_negative=0
 true_negative=0
 for dst in alldst:
-    if dst in detected_victim and dst in actual_victim:
+    if detected_victim[dst] and actual_victim[dst]:
         true_positive+=1
-    elif dst in detected_victim and dst not in actual_victim:
+    elif detected_victim[dst] and dst not in actual_victim:
         false_positive+=1
-    elif dst not in detected_victim and dst in actual_victim:
+    elif dst not in detected_victim and actual_victim[dst]:
         false_negative+=1
     else:
         true_negative+=1
