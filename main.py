@@ -12,8 +12,8 @@ class Detector:
         self.seed2=3341
     def insert(self,src,dst):
         sampling_probability=self.samping_probability*self.m/(self.m-self.cnt)
-        hash_result_1=mmh3.hash64(src^dst,self.seed1)
-        hash_result_2=mmh3.hash64(src^dst,self.seed2)%self.m
+        hash_result_1=mmh3.hash64(src+dst,self.seed1)
+        hash_result_2=mmh3.hash64(src+dst,self.seed2)%self.m
         is_sampled=hash_result_1<sampling_probability*2**64
         if self.bit_array[hash_result_2]==0:
             self.cnt+=1
@@ -35,9 +35,34 @@ class Detector:
         return dst_flow_spread_estimation-src_flow_spread_estimation>self.detect_threshold*dst_flow_spread_estimation
 
 if __name__=="main":
-    dataset=[]
-    ddos_dataset=[]
+    dataset=open("dataset.txt")
+    detector=Detector(100000,0.01,0.1)
+    ddos_dataset=open("ddos_dataset.txt")
     detected_victim=[]
     actual_victim=[]
+    current_time=0
+    idx=0
+    while 1:
+        readstr=dataset.readline()
+        if not readstr:
+            break
+        src,dst=readstr.split()[1:3]
+        detector.insert(src,dst)
+        if detector.detect(src,dst):
+            detected_victim.append(dst)
+    while 1:
+        readstr=ddos_dataset.readline()
+        if not readstr:
+            break
+        timestamp,src,dst=readstr.split()
+        timestamp=float(timestamp)
+        if timestamp-current_time>60:
+            current_time=timestamp
+            idx+=1
+            dst+=str(idx)
+            actual_victim.append(dst)
+        detector.insert(src,dst)
+        if detector.detect(src,dst):
+            detected_victim.append(dst)
     
 
