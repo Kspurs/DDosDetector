@@ -1,4 +1,5 @@
 import mmh3
+import os
 class Detector:
     def __init__(self,m,p,t):
         self.bit_array=[0]*m
@@ -38,6 +39,9 @@ if __name__=="main":
     dataset=open("dataset.txt")
     detector=Detector(100000,0.01,0.1)
     ddos_dataset=open("ddos_dataset.txt")
+    filenames=os.listdir("./")
+    curfileidx=0
+    alldst={}
     detected_victim=[]
     actual_victim=[]
     current_time=0
@@ -48,14 +52,19 @@ if __name__=="main":
             break
         src,dst=readstr.split()[1:3]
         detector.insert(src,dst)
+        alldst[dst]=1
         if detector.detect(src,dst):
             detected_victim.append(dst)
     while 1:
         readstr=ddos_dataset.readline()
         if not readstr:
+            ddos_dataset.close()
+            curfileidx+=1
+            ddos_dataset=open(filenames[curfileidx])
             break
         timestamp,src,dst=readstr.split()
         timestamp=float(timestamp)
+        alldst[dst]=1
         if timestamp-current_time>60:
             current_time=timestamp
             idx+=1
@@ -64,5 +73,25 @@ if __name__=="main":
         detector.insert(src,dst)
         if detector.detect(src,dst):
             detected_victim.append(dst)
-    
+    true_positive=0
+    false_positive=0
+    false_negative=0
+    true_negative=0
+    for dst in alldst:
+        if dst in detected_victim and dst in actual_victim:
+            true_positive+=1
+        elif dst in detected_victim and dst not in actual_victim:
+            false_positive+=1
+        elif dst not in detected_victim and dst in actual_victim:
+            false_negative+=1
+        else:
+            true_negative+=1
+    accuary=(true_positive+true_negative)/(true_positive+true_negative+false_positive+false_negative)
+    recall=true_positive/(true_positive+false_negative)
+    precision=true_positive/(true_positive+false_positive)
+    f1=2*precision*recall/(precision+recall)
+    print("accuary:",accuary)
+    print("recall:",recall)
+    print("precision:",precision)
+    print("f1:",f1)
 
