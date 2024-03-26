@@ -12,7 +12,7 @@ int main(){
     ofstream out;
     ifstream inf;
     string caida_dir_path = "ddos_dataset";
-    out.open("unprocessed_traffic.txt", ios::out);
+    out.open("processed/unprocessed_traffic.txt", ios::out);
     for (const auto& entry : filesystem::directory_iterator(caida_dir_path)) 
     {
         inf.open(entry.path(), ios::in);
@@ -30,8 +30,8 @@ int main(){
     }
     cout<<"preprocess phase 1 done"<<endl;
     out.close();
-    inf.open("unprocessed_traffic.txt", ios::in);
-    out.open("processed_traffic.txt", ios::out);
+    inf.open("processed/unprocessed_traffic.txt", ios::in);
+    out.open("processed/processed_traffic.txt", ios::out);
     double start_time=-1;
     double end_time=-1;
     string timestamp,src_ip, dst_ip;
