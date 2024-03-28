@@ -5,6 +5,7 @@
 #include<fstream>
 #include<unordered_set>
 #include <iostream>
+#include <string.h>
 using namespace std;
 class Detector{
     private:
@@ -14,33 +15,40 @@ class Detector{
     int bit_array_cnt;
     int bit_array_length;
     int seed1;
-    int seed2;
+    int seed2=10000;
     unordered_map<string,int> offline_hashmap_src;
     unordered_map<string,int> offline_hashmap_dst;
     public:
-    Detector(int length,int abs_threshold,int seed1,int seed2,int p)
+    Detector(int length,int abs_threshold,int seed1,int seed2,double p)
     {
+        
         this->bit_array_length=length;
         this->abs_threshold=abs_threshold;
         this->seed1=seed1;
         this->seed2=seed2;
         this->bit_array=(char*)malloc(length/8);
         this->sampling_probability=p;
+        this->bit_array_cnt=0;
     }
     void insert(string src,string dst)
     {
         double cur_sampling_probility=this->sampling_probability*this->bit_array_length/(this->bit_array_length-this->bit_array_cnt);
-        int hash_value1=0;
-        int hash_value2=0;
+        unsigned int hash_value1=0;
+        unsigned int hash_value2=0;
         string key=(src+dst);
-        MurmurHash3_x64_128(key.data(),key.size(),this->seed1,&hash_value1);
-        MurmurHash3_x64_128(key.data(),key.size(),this->seed2,&hash_value2);
+        MurmurHash3_x86_32(key.data(),key.size(),this->seed1,&hash_value1);
+        MurmurHash3_x86_32(key.data(),key.size(),this->seed2,&hash_value2);
         hash_value2=hash_value2%this->bit_array_length;
+        int byte=hash_value2/8;
+        int in_byte_idx=hash_value2%8;
         int is_sampled=hash_value1<cur_sampling_probility*pow(2,32);
-        if(this->bit_array[hash_value2]==0)
+        char read_byte=0;  
+        memcpy(&read_byte,this->bit_array+byte,1);
+        int bit_value=read_byte&(1<<in_byte_idx);
+        if(bit_value==0)
         {
             this->bit_array_cnt+=1;
-            this->bit_array[hash_value2]=1;
+            memset(this->bit_array+byte,read_byte|(1<<in_byte_idx),1);
             if(is_sampled)
             {
                 this->offline_hashmap_src[src]+=1;
@@ -55,6 +63,10 @@ class Detector{
         return dst_flow_spread>this->abs_threshold&&dst_flow_spread-src_flow_spread>0.5*dst_flow_spread;
 
     }
+    int get_spread(string dst)
+    {
+        return this->offline_hashmap_dst[dst];
+    }
     
 };
 int main()
@@ -64,7 +76,7 @@ int main()
     read_file_normal.open("processed/normal_traffic.txt",ios::in);
     unordered_set<string> all_dst,actual_victim,detected_victim;
     string src,dst,timestamp;
-    Detector* detector=new Detector(1000000,1000,1232,1545,0.3);
+    Detector* detector=new Detector(800000,1000,1232,1545,0.3);
     while(read_file_normal>>src&&read_file_normal>>dst)
     {
         all_dst.insert(dst);
@@ -114,6 +126,13 @@ int main()
             }
         }
     }
+    ofstream write_result;
+    write_result.open("estimation_result.txt",ios::out);
+    for(auto victim:actual_victim)
+    {
+        write_result<<victim<<" "<<detector->get_spread(victim)<<endl;
+    }
+    write_result.close();
     cout<<true_positive<<" "<<true_negative<<" "<<false_positive<<" "<<false_negative<<endl;
     double accuary=(true_positive+true_negative)/(true_positive+true_negative+false_positive+false_negative);
     double recall=true_positive/(true_positive+false_negative);
