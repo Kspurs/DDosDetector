@@ -6,6 +6,7 @@
 #include<unordered_set>
 #include <iostream>
 #include <string.h>
+#include"HLLCM.cpp"
 using namespace std;
 class Detector{
     private:
@@ -19,7 +20,7 @@ class Detector{
     unordered_map<string,int> offline_hashmap_src;
     unordered_map<string,int> offline_hashmap_dst;
     public:
-    Detector(int length,int abs_threshold,int seed1,int seed2,double p)
+Detector(int length,int abs_threshold,int seed1,int seed2,double p)
     {
         
         this->bit_array_length=length;
@@ -63,9 +64,9 @@ class Detector{
         return dst_flow_spread>this->abs_threshold&&dst_flow_spread-src_flow_spread>0.5*dst_flow_spread;
 
     }
-    int get_spread(string dst)
+    double get_spread(string dst)
     {
-        return this->offline_hashmap_dst[dst];
+        return this->offline_hashmap_dst[dst]/this->sampling_probability;
     }
     
 };
@@ -76,11 +77,16 @@ int main()
     read_file_normal.open("processed/normal_traffic.txt",ios::in);
     unordered_set<string> all_dst,actual_victim,detected_victim;
     string src,dst,timestamp;
-    Detector* detector=new Detector(800000,1000,1232,1545,0.3);
+    Detector* detector=new Detector(8000000,1000,1232,1545,0.1);
+    // HLLCM* detector=new HLLCM();
+    time_t start;
+    time(&start);
+    unsigned int total_pkt=0;
     while(read_file_normal>>src&&read_file_normal>>dst)
     {
         all_dst.insert(dst);
         detector->insert(src,dst);
+        total_pkt++;
     }
     read_file_normal.close();
     read_file_ddos.open("processed/processed_traffic.txt",ios::in);
@@ -88,8 +94,14 @@ int main()
     {
         all_dst.insert(dst);
         detector->insert(src,dst);
+        total_pkt++;
         actual_victim.insert(dst);
     }
+    time_t end;
+    time(&end);
+    unsigned int process_time=(end-start);
+    cout<<"process_time: "<<process_time<<endl;
+    cout<<"total pkt: "<<total_pkt<<endl;
     double true_positive=0;
     double true_negative=0;
     double false_positive=0;
@@ -128,9 +140,9 @@ int main()
     }
     ofstream write_result;
     write_result.open("estimation_result.txt",ios::out);
-    for(auto victim:actual_victim)
+    for(auto dst:all_dst)
     {
-        write_result<<victim<<" "<<detector->get_spread(victim)<<endl;
+        write_result<<dst<<" "<<detector->get_spread(dst)<<endl;
     }
     write_result.close();
     cout<<true_positive<<" "<<true_negative<<" "<<false_positive<<" "<<false_negative<<endl;
